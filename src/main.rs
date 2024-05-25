@@ -53,9 +53,14 @@ fn main() -> Result<()> {
 
     let mut operations = BTreeMap::new();
 
-    for i in 1.. {
-        for j in 1..i + 1 {
-            let new_cost = i + j;
+    for new_cost in 1.. {
+        println!(
+            "searching for cost {new_cost} ({} total numbers reached)",
+            costs.len(),
+        );
+
+        for i in 1..new_cost + 1 {
+            let j = new_cost - i;
 
             let new_numbers: BTreeMap<N, (N, N, Op)> = costs
                 .iter()
