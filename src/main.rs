@@ -5,12 +5,13 @@ use std::{
 
 use anyhow::*;
 
-type N = i64;
+type N = i32;
 
 enum Op {
     Add,
     Mul,
     Sub,
+    Exp,
 }
 
 impl fmt::Display for Op {
@@ -19,6 +20,7 @@ impl fmt::Display for Op {
             Op::Add => "+",
             Op::Mul => "*",
             Op::Sub => "-",
+            Op::Exp => "^",
         })
     }
 }
@@ -64,9 +66,17 @@ fn main() -> Result<()> {
                         .filter(|(_, &cost)| (j == cost))
                         .flat_map(move |(&rhs, _)| {
                             [
-                                (lhs + rhs, (lhs, rhs, Op::Add)),
-                                (lhs * rhs, (lhs, rhs, Op::Mul)),
-                                (lhs - rhs, (lhs, rhs, Op::Sub)),
+                                (lhs.saturating_add(rhs), (lhs, rhs, Op::Add)),
+                                (lhs.saturating_mul(rhs), (lhs, rhs, Op::Mul)),
+                                (lhs.saturating_sub(rhs), (lhs, rhs, Op::Sub)),
+                                (
+                                    if rhs < 0 {
+                                        0
+                                    } else {
+                                        lhs.saturating_pow(rhs as _)
+                                    },
+                                    (lhs, rhs, Op::Exp),
+                                ),
                             ]
                         })
                 })
@@ -80,7 +90,7 @@ fn main() -> Result<()> {
             });
 
             if let Some(cost) = costs.get(&target) {
-                fn print_tree(operations: &BTreeMap<i64, (i64, i64, Op)>, n: &N, depth: usize) {
+                fn print_tree(operations: &BTreeMap<N, (N, N, Op)>, n: &N, depth: usize) {
                     if let Some((lhs, rhs, op)) = operations.get(n) {
                         println!("{}{lhs} {op} {rhs}", "  ".repeat(depth));
                         print_tree(operations, lhs, depth + 1);
