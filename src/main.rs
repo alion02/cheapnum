@@ -30,6 +30,7 @@ fn main() -> Result<()> {
 
     let target: N = args.nth(1).context("missing target number")?.parse()?;
 
+    let mut numbers = BTreeMap::<u32, Vec<_>>::new();
     let mut costs = args
         .map(|n| {
             let (n, cost) = if let Some((n, cost)) = n.split_once('=') {
@@ -40,7 +41,10 @@ fn main() -> Result<()> {
 
             ensure!(cost > 0, "bad number cost");
 
-            Ok((n.parse().context("bad number")?, cost))
+            let n = n.parse().context("bad number")?;
+            numbers.entry(cost).or_default().push(n);
+
+            Ok((n, cost))
         })
         .collect::<Result<BTreeMap<N, u32>>>()?;
 
@@ -59,57 +63,63 @@ fn main() -> Result<()> {
             costs.len(),
         );
 
-        for i in 1..new_cost + 1 {
-            let j = new_cost - i;
+        let new_numbers: BTreeMap<N, (N, N, Op)> = (1..new_cost + 1)
+            .flat_map(|i| {
+                let j = new_cost - i;
 
-            let new_numbers: BTreeMap<N, (N, N, Op)> = costs
-                .iter()
-                .filter(|(_, &cost)| (i == cost))
-                .flat_map(|(&lhs, _)| {
-                    costs
-                        .iter()
-                        .filter(|(_, &cost)| (j == cost))
-                        .flat_map(move |(&rhs, _)| {
-                            [
-                                (lhs.saturating_add(rhs), (lhs, rhs, Op::Add)),
-                                (lhs.saturating_mul(rhs), (lhs, rhs, Op::Mul)),
-                                (lhs.saturating_sub(rhs), (lhs, rhs, Op::Sub)),
-                                (
-                                    if rhs < 0 {
-                                        0
-                                    } else {
-                                        lhs.saturating_pow(rhs as _)
-                                    },
-                                    (lhs, rhs, Op::Exp),
-                                ),
-                            ]
-                        })
-                })
-                .collect();
+                let numbers = &numbers;
+                numbers
+                    .get(&i)
+                    .into_iter()
+                    .flat_map(|vec| vec.iter())
+                    .flat_map(move |&lhs| {
+                        numbers
+                            .get(&j)
+                            .into_iter()
+                            .flat_map(|vec| vec.iter())
+                            .flat_map(move |&rhs| {
+                                [
+                                    (lhs.saturating_add(rhs), (lhs, rhs, Op::Add)),
+                                    (lhs.saturating_mul(rhs), (lhs, rhs, Op::Mul)),
+                                    (lhs.saturating_sub(rhs), (lhs, rhs, Op::Sub)),
+                                    (
+                                        if rhs < 0 {
+                                            0
+                                        } else {
+                                            lhs.saturating_pow(rhs as _)
+                                        },
+                                        (lhs, rhs, Op::Exp),
+                                    ),
+                                ]
+                            })
+                    })
+            })
+            .collect();
 
-            new_numbers.into_iter().for_each(|(n, op)| {
-                if let Entry::Vacant(v) = costs.entry(n) {
-                    v.insert(new_cost);
-                    operations.insert(n, op);
-                }
-            });
+        let curr_cost = numbers.entry(new_cost).or_default();
+        new_numbers.into_iter().for_each(|(n, op)| {
+            if let Entry::Vacant(v) = costs.entry(n) {
+                v.insert(new_cost);
+                operations.insert(n, op);
+                curr_cost.push(n);
+            }
+        });
 
-            if let Some(cost) = costs.get(&target) {
-                fn print_tree(operations: &BTreeMap<N, (N, N, Op)>, n: &N, depth: usize) {
-                    if let Some((lhs, rhs, op)) = operations.get(n) {
-                        println!("{}{lhs} {op} {rhs}", "  ".repeat(depth));
-                        print_tree(operations, lhs, depth + 1);
-                        if lhs != rhs {
-                            print_tree(operations, rhs, depth + 1);
-                        }
+        if let Some(cost) = costs.get(&target) {
+            fn print_tree(operations: &BTreeMap<N, (N, N, Op)>, n: &N, depth: usize) {
+                if let Some((lhs, rhs, op)) = operations.get(n) {
+                    println!("{}{lhs} {op} {rhs}", "  ".repeat(depth));
+                    print_tree(operations, lhs, depth + 1);
+                    if lhs != rhs {
+                        print_tree(operations, rhs, depth + 1);
                     }
                 }
-
-                println!("found target number (total cost {cost}):");
-                print_tree(&operations, &target, 1);
-
-                return Ok(());
             }
+
+            println!("found target number (total cost {cost}):");
+            print_tree(&operations, &target, 1);
+
+            return Ok(());
         }
     }
 
