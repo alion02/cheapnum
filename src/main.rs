@@ -50,7 +50,6 @@ fn main() -> Result<()> {
         })
         .collect::<Result<BTreeMap<N, u32>>>()?;
 
-    println!("target: {target}");
     println!("initial numbers:");
 
     costs
@@ -131,7 +130,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            println!("found target number (total cost {cost}):");
+            println!("found target number {target} (total cost {cost}):");
             print_tree(&operations, &target, 1);
 
             return Ok(());
