@@ -11,6 +11,7 @@ enum Op {
     Add,
     Mul,
     Sub,
+    Div,
     Exp,
 }
 
@@ -20,6 +21,7 @@ impl fmt::Display for Op {
             Op::Add => "+",
             Op::Mul => "*",
             Op::Sub => "-",
+            Op::Div => "/",
             Op::Exp => "^",
         })
     }
@@ -82,6 +84,19 @@ fn main() -> Result<()> {
                                     (lhs.saturating_add(rhs), (lhs, rhs, Op::Add)),
                                     (lhs.saturating_mul(rhs), (lhs, rhs, Op::Mul)),
                                     (lhs.saturating_sub(rhs), (lhs, rhs, Op::Sub)),
+                                    (
+                                        if rhs == 0 {
+                                            0
+                                        } else {
+                                            let res = lhs.saturating_div(rhs);
+                                            if res.saturating_mul(rhs) != lhs {
+                                                0
+                                            } else {
+                                                res
+                                            }
+                                        },
+                                        (lhs, rhs, Op::Div),
+                                    ),
                                     (
                                         if rhs < 0 {
                                             0
