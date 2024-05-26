@@ -170,6 +170,7 @@ fn main() -> Result<()> {
             break;
         }
 
+        new_numbers.shrink_to_fit();
         numbers.insert(new_cost, new_numbers);
     }
 
