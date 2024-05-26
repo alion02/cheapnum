@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+};
 
 use anyhow::*;
 use bitvec::vec::BitVec;
@@ -36,8 +39,9 @@ fn main() -> Result<()> {
 
     let target: N = args.nth(1).context("missing target number")?.parse()?;
 
-    let mut seen = BitVec::<u32>::repeat(false, 1 << 32).into_boxed_bitslice();
+    let mut initial = BTreeSet::new();
     let mut numbers = BTreeMap::<Cost, Vec<N>>::new();
+    let mut seen = BitVec::<u32>::repeat(false, 1 << 32).into_boxed_bitslice();
     for arg in args {
         let (n, cost) = if let Some((n, cost)) = arg.split_once('=') {
             (n, cost.parse().context("bad number cost")?)
@@ -49,6 +53,7 @@ fn main() -> Result<()> {
 
         let n = n.parse().context("bad number")?;
 
+        initial.insert(n);
         numbers.entry(cost).or_default().push(n);
         seen.set(idx(n), true);
     }
@@ -58,6 +63,29 @@ fn main() -> Result<()> {
 
         println!("searching for cost {new_cost}");
 
+        #[inline]
+        fn div(a: N, b: N) -> N {
+            if b == 0 {
+                0
+            } else {
+                let res = a.saturating_div(b);
+                if res.saturating_mul(b) != a {
+                    0
+                } else {
+                    res
+                }
+            }
+        }
+
+        #[inline]
+        fn pow(a: N, b: N) -> N {
+            if b < 0 {
+                0
+            } else {
+                a.saturating_pow(b as _)
+            }
+        }
+
         for i in 1..new_cost / 2 + 1 {
             let j = new_cost - i;
 
@@ -66,29 +94,6 @@ fn main() -> Result<()> {
 
             for &a in a_slice {
                 for &b in b_slice {
-                    #[inline]
-                    fn div(a: N, b: N) -> N {
-                        if b == 0 {
-                            0
-                        } else {
-                            let res = a.saturating_div(b);
-                            if res.saturating_mul(b) != a {
-                                0
-                            } else {
-                                res
-                            }
-                        }
-                    }
-
-                    #[inline]
-                    fn pow(a: N, b: N) -> N {
-                        if b < 0 {
-                            0
-                        } else {
-                            a.saturating_pow(b as _)
-                        }
-                    }
-
                     for n in [
                         a.saturating_add(b),
                         a.saturating_mul(b),
@@ -110,29 +115,64 @@ fn main() -> Result<()> {
         }
 
         if seen[idx(target)] {
-            println!("found target number {target} (total cost {new_cost})");
+            fn print_tree(
+                n: N,
+                cost: Cost,
+                depth: usize,
+                breakdown: &mut impl FnMut(N, Cost) -> Option<(N, Cost, N, Cost, Op)>,
+            ) {
+                if let Some((lhs, lcost, rhs, rcost, op)) = breakdown(n, cost) {
+                    println!("{}{lhs} {op} {rhs}", "  ".repeat(depth));
+                    print_tree(lhs, lcost, depth + 1, breakdown);
+                    if lhs != rhs {
+                        print_tree(rhs, rcost, depth + 1, breakdown);
+                    }
+                }
+            }
+
+            println!("found target number {target}:");
+            print_tree(target, new_cost, 1, &mut |t, cost| {
+                if initial.contains(&t) {
+                    return None;
+                }
+
+                for i in 1..cost / 2 + 1 {
+                    let j = cost - i;
+
+                    let a_slice = numbers.get(&i).unwrap().as_slice();
+                    let b_slice = numbers.get(&j).unwrap().as_slice();
+
+                    for &a in a_slice {
+                        for &b in b_slice {
+                            for (n, (swap, op)) in [
+                                (a.saturating_add(b), (false, Op::Add)),
+                                (a.saturating_mul(b), (false, Op::Mul)),
+                                (a.saturating_sub(b), (false, Op::Sub)),
+                                (b.saturating_sub(a), (true, Op::Sub)),
+                                (div(a, b), (false, Op::Div)),
+                                (div(b, a), (true, Op::Div)),
+                                (pow(a, b), (false, Op::Pow)),
+                                (pow(b, a), (true, Op::Pow)),
+                            ] {
+                                if n == t {
+                                    return Some(if swap {
+                                        (b, j, a, i, op)
+                                    } else {
+                                        (a, i, b, j, op)
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                unreachable!()
+            });
 
             break;
         }
 
         numbers.insert(new_cost, new_numbers);
-
-        // if let Some(cost) = costs.get(&target) {
-        //     fn print_tree(operations: &BTreeMap<N, (N, N, Op)>, n: &N, depth: usize) {
-        //         if let Some((lhs, rhs, op)) = operations.get(n) {
-        //             println!("{}{lhs} {op} {rhs}", "  ".repeat(depth));
-        //             print_tree(operations, lhs, depth + 1);
-        //             if lhs != rhs {
-        //                 print_tree(operations, rhs, depth + 1);
-        //             }
-        //         }
-        //     }
-
-        //     println!("found target number {target} (total cost {cost}):");
-        //     print_tree(&operations, &target, 1);
-
-        //     return Ok(());
-        // }
     }
 
     Ok(())
