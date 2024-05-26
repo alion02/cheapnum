@@ -132,41 +132,39 @@ fn main() -> Result<()> {
 
             println!("found target number {target}:");
             print_tree(target, new_cost, 1, &mut |t, cost| {
-                if initial.contains(&t) {
-                    return None;
-                }
+                if !initial.contains(&t) {
+                    for j in (1..cost / 2 + 1).rev() {
+                        let i = cost - j;
 
-                for j in (1..cost / 2 + 1).rev() {
-                    let i = cost - j;
+                        let a_slice = numbers.get(&i).unwrap().as_slice();
+                        let b_slice = numbers.get(&j).unwrap().as_slice();
 
-                    let a_slice = numbers.get(&i).unwrap().as_slice();
-                    let b_slice = numbers.get(&j).unwrap().as_slice();
-
-                    for &a in a_slice {
-                        for &b in b_slice {
-                            for (n, (swap, op)) in [
-                                (a.saturating_add(b), (false, Op::Add)),
-                                (a.saturating_mul(b), (false, Op::Mul)),
-                                (a.saturating_sub(b), (false, Op::Sub)),
-                                (b.saturating_sub(a), (true, Op::Sub)),
-                                (div(a, b), (false, Op::Div)),
-                                (div(b, a), (true, Op::Div)),
-                                (pow(a, b), (false, Op::Pow)),
-                                (pow(b, a), (true, Op::Pow)),
-                            ] {
-                                if n == t {
-                                    return Some(if swap {
-                                        (b, j, a, i, op)
-                                    } else {
-                                        (a, i, b, j, op)
-                                    });
+                        for &a in a_slice {
+                            for &b in b_slice {
+                                for (n, (swap, op)) in [
+                                    (a.saturating_add(b), (false, Op::Add)),
+                                    (a.saturating_mul(b), (false, Op::Mul)),
+                                    (a.saturating_sub(b), (false, Op::Sub)),
+                                    (b.saturating_sub(a), (true, Op::Sub)),
+                                    (div(a, b), (false, Op::Div)),
+                                    (div(b, a), (true, Op::Div)),
+                                    (pow(a, b), (false, Op::Pow)),
+                                    (pow(b, a), (true, Op::Pow)),
+                                ] {
+                                    if n == t {
+                                        return Some(if swap {
+                                            (b, j, a, i, op)
+                                        } else {
+                                            (a, i, b, j, op)
+                                        });
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                unreachable!()
+                None
             });
 
             break;
