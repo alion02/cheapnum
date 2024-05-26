@@ -136,8 +136,8 @@ fn main() -> Result<()> {
                     return None;
                 }
 
-                for i in 1..cost / 2 + 1 {
-                    let j = cost - i;
+                for j in (1..cost / 2 + 1).rev() {
+                    let i = cost - j;
 
                     let a_slice = numbers.get(&i).unwrap().as_slice();
                     let b_slice = numbers.get(&j).unwrap().as_slice();
