@@ -68,12 +68,7 @@ fn main() -> Result<()> {
             if b == 0 {
                 0
             } else {
-                let res = a.saturating_div(b);
-                if res.saturating_mul(b) != a {
-                    0
-                } else {
-                    res
-                }
+                a.saturating_div(b)
             }
         }
 
